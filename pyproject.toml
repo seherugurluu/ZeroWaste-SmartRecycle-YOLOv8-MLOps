@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "zero-waste-smart-recycle"
+version = "0.1.0"
+description = "YOLOv8-based smart waste detection and recycling management system"
+authors = ["Seher Ugurlu", "Damla Su Ozbek"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+ultralytics = "^8.3.0"
+opencv-python = "^4.10.0"
+numpy = "^1.26.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+ruff = "^0.6.0"
+pre-commit = "^3.7.0"
+dvc = "^3.67.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0"]
+build-backend = "poetry.core.masonry.api"
