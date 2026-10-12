@@ -1,70 +1,104 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-DATASET_DIR = Path("data")
 CLASS_COUNT = 6
+SPLITS = ["train", "valid", "test"]
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATASET_DIR = PROJECT_ROOT / "data"
 
-splits = ["train", "valid", "test"]
 
-total_labels = 0
-errors = []
+def validate_label_file(label_file: Path) -> list[str]:
+    """Bir YOLO etiket dosyasındaki satırları kontrol eder."""
+    errors = []
 
-for split in splits:
-    labels_dir = DATASET_DIR / split / "labels"
+    try:
+        lines = label_file.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        return [f"{label_file}: dosya okunamadi: {error}"]
 
-    if not labels_dir.exists():
-        errors.append(f"{split}: labels klasoru bulunamadi")
-        continue
+    for line_number, line in enumerate(lines, start=1):
+        line = line.strip()
 
-    label_files = list(labels_dir.glob("*.txt"))
-    total_labels += len(label_files)
+        if not line:
+            continue
 
-    for label_file in label_files:
-        with label_file.open("r", encoding="utf-8") as file:
-            for line_number, line in enumerate(file, start=1):
-                line = line.strip()
+        parts = line.split()
 
-                if not line:
-                    continue
+        if len(parts) != 5:
+            errors.append(
+                f"{label_file} - satir {line_number}: 5 deger bekleniyor"
+            )
+            continue
 
-                parts = line.split()
+        try:
+            class_id = int(parts[0])
+            values = [float(value) for value in parts[1:]]
+        except ValueError:
+            errors.append(
+                f"{label_file} - satir {line_number}: sayisal olmayan deger"
+            )
+            continue
 
-                if len(parts) != 5:
-                    errors.append(
-                        f"{label_file} - satir {line_number}: "
-                        "5 deger bekleniyor"
-                    )
-                    continue
+        if not 0 <= class_id < CLASS_COUNT:
+            errors.append(
+                f"{label_file} - satir {line_number}: "
+                f"gecersiz class id: {class_id}"
+            )
 
-                try:
-                    class_id = int(parts[0])
-                    values = [float(value) for value in parts[1:]]
-                except ValueError:
-                    errors.append(
-                        f"{label_file} - satir {line_number}: "
-                        "sayisal olmayan deger"
-                    )
-                    continue
+        if not all(0 <= value <= 1 for value in values):
+            errors.append(
+                f"{label_file} - satir {line_number}: "
+                "koordinatlar 0 ile 1 arasinda olmali"
+            )
 
-                if not 0 <= class_id < CLASS_COUNT:
-                    errors.append(
-                        f"{label_file} - satir {line_number}: "
-                        f"gecersiz class id: {class_id}"
-                    )
+    return errors
 
-                if not all(0 <= value <= 1 for value in values):
-                    errors.append(
-                        f"{label_file} - satir {line_number}: "
-                        "koordinatlar 0 ile 1 arasinda olmali"
-                    )
 
-    print(f"{split}: {len(label_files)} label dosyasi kontrol edildi.")
+def main() -> None:
+    total_labels = 0
+    errors = []
 
-print()
-print(f"Toplam label dosyasi: {total_labels}")
+    for split in SPLITS:
+        split_dir = DATASET_DIR / split
+        images_dir = split_dir / "images"
+        labels_dir = split_dir / "labels"
 
-if errors:
-    print(f"HATA SAYISI: {len(errors)}")
-    for error in errors[:20]:
-        print(error)
-else:
-    print("Dataset label kontrolu basarili!")
+        if not images_dir.exists() or not labels_dir.exists():
+            errors.append(f"{split}: images veya labels klasoru bulunamadi")
+            continue
+
+        image_stems = {file.stem for file in images_dir.iterdir() if file.is_file()}
+        label_files = sorted(labels_dir.glob("*.txt"))
+        label_stems = {file.stem for file in label_files}
+        total_labels += len(label_files)
+
+        for missing_label in sorted(image_stems - label_stems):
+            errors.append(f"{split}: etiketi bulunamayan gorsel: {missing_label}")
+
+        for missing_image in sorted(label_stems - image_stems):
+            errors.append(f"{split}: gorseli bulunamayan etiket: {missing_image}")
+
+        worker_count = min(16, max(1, len(label_files)))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            for file_errors in executor.map(validate_label_file, label_files):
+                errors.extend(file_errors)
+
+        print(
+            f"{split}: {len(image_stems)} gorsel, "
+            f"{len(label_files)} label dosyasi kontrol edildi.",
+            flush=True,
+        )
+
+    print()
+    print(f"Toplam label dosyasi: {total_labels}")
+
+    if errors:
+        print(f"HATA SAYISI: {len(errors)}")
+        for error in errors[:20]:
+            print(error)
+    else:
+        print("Dataset kontrolu basarili!")
+
+
+if __name__ == "__main__":
+    main()
