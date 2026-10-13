@@ -1,0 +1,13 @@
+# YOLOv8 eğitim ayarları
+model: yolov8n.pt
+data: data/data.yaml
+epochs: 50
+imgsz: 640
+batch: 16
+patience: 10
+workers: 4
+device: 0
+project: runs/train
+name: waste-yolov8
+exist_ok: false
+plots: true

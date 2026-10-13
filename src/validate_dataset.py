@@ -25,24 +25,19 @@ def validate_label_file(label_file: Path) -> list[str]:
         parts = line.split()
 
         if len(parts) != 5:
-            errors.append(
-                f"{label_file} - satir {line_number}: 5 deger bekleniyor"
-            )
+            errors.append(f"{label_file} - satir {line_number}: 5 deger bekleniyor")
             continue
 
         try:
             class_id = int(parts[0])
             values = [float(value) for value in parts[1:]]
         except ValueError:
-            errors.append(
-                f"{label_file} - satir {line_number}: sayisal olmayan deger"
-            )
+            errors.append(f"{label_file} - satir {line_number}: sayisal olmayan deger")
             continue
 
         if not 0 <= class_id < CLASS_COUNT:
             errors.append(
-                f"{label_file} - satir {line_number}: "
-                f"gecersiz class id: {class_id}"
+                f"{label_file} - satir {line_number}: " f"gecersiz class id: {class_id}"
             )
 
         if not all(0 <= value <= 1 for value in values):

@@ -1,0 +1,18 @@
+services:
+  dataset-validator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zerowaste-dataset-validator:local
+    volumes:
+      - ./data:/app/data:ro
+    command: ["python", "src/validate_dataset.py"]
+
+  dataset-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: zerowaste-dataset-validator:local
+    volumes:
+      - ./data:/app/data:ro
+    command: ["python", "-m", "pytest", "tests/test_dataset_validation.py", "-q"]

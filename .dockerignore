@@ -1,0 +1,17 @@
+.git/
+.dvc/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# The dataset is mounted read-only by docker compose instead of copied into the image.
+data/
+GARBAGE CLASSIFICATION/
+models/
+
+*.pt
+*.pyc
+*.pyo
+.env
