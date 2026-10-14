@@ -23,6 +23,10 @@ def load_config(config_path: Path) -> dict:
             if candidate.exists():
                 config[key] = str(candidate)
 
+    project = config.get("project")
+    if isinstance(project, str) and not Path(project).is_absolute():
+        config["project"] = str(PROJECT_ROOT / project)
+
     return config
 
 
@@ -34,12 +38,32 @@ def parse_args():
         default=DEFAULT_CONFIG,
         help="Eğitim ayarlarının bulunduğu YAML dosyası.",
     )
+    parser.add_argument(
+        "--epochs", type=int, help="YAML ayarını geçici olarak geçersiz kılar."
+    )
+    parser.add_argument(
+        "--batch", type=int, help="YAML ayarını geçici olarak geçersiz kılar."
+    )
+    parser.add_argument(
+        "--imgsz", type=int, help="YAML ayarını geçici olarak geçersiz kılar."
+    )
+    parser.add_argument(
+        "--fraction", type=float, help="Eğitim verisinin kullanılacak oranı."
+    )
+    parser.add_argument(
+        "--device", help="Örneğin cpu veya 0; YAML ayarını geçersiz kılar."
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     config = load_config(args.config)
+    for key in ("epochs", "batch", "imgsz", "fraction", "device"):
+        value = getattr(args, key)
+        if value is not None:
+            config[key] = value
+
     model = YOLO(config.pop("model"))
     model.train(**config)
 
