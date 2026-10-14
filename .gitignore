@@ -209,6 +209,7 @@ tempCodeRunnerFile.py
 # Local training outputs and model weights:
 runs/
 *.pt
+!models/waste-yolov8-final.pt
 
 # PyPI configuration file
 .pypirc
