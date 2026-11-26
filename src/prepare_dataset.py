@@ -8,7 +8,9 @@ import shutil
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
-def prepare(input_dir: Path, output_dir: Path, seed: int = 42) -> dict[str, dict[str, int]]:
+def prepare(
+    input_dir: Path, output_dir: Path, seed: int = 42
+) -> dict[str, dict[str, int]]:
     rng = random.Random(seed)
     classes = sorted(path.name for path in input_dir.iterdir() if path.is_dir())
     if not classes:
@@ -16,11 +18,19 @@ def prepare(input_dir: Path, output_dir: Path, seed: int = 42) -> dict[str, dict
     output_dir.mkdir(parents=True, exist_ok=True)
     result = {}
     for class_name in classes:
-        files = sorted(path for path in (input_dir / class_name).iterdir() if path.suffix.lower() in IMAGE_EXTENSIONS)
+        files = sorted(
+            path
+            for path in (input_dir / class_name).iterdir()
+            if path.suffix.lower() in IMAGE_EXTENSIONS
+        )
         rng.shuffle(files)
         train_end = int(len(files) * 0.70)
         valid_end = train_end + int(len(files) * 0.15)
-        groups = {"train": files[:train_end], "valid": files[train_end:valid_end], "test": files[valid_end:]}
+        groups = {
+            "train": files[:train_end],
+            "valid": files[train_end:valid_end],
+            "test": files[valid_end:],
+        }
         result[class_name] = {}
         for split, split_files in groups.items():
             destination = output_dir / split / class_name

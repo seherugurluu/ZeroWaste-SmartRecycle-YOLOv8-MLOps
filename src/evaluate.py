@@ -6,7 +6,12 @@ from pathlib import Path
 
 import torch
 import yaml
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+)
 from torch.utils.data import DataLoader
 from torchvision import datasets, models, transforms
 
@@ -26,13 +31,17 @@ def main() -> None:
     if not data_dir.is_absolute():
         data_dir = PROJECT_ROOT / data_dir
     model_path = args.model or PROJECT_ROOT / config["output_dir"] / "best_model.pth"
-    report_dir = args.report_dir or PROJECT_ROOT / config.get("report_dir", "reports/cnn")
+    report_dir = args.report_dir or PROJECT_ROOT / config.get(
+        "report_dir", "reports/cnn"
+    )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    transform = transforms.Compose([
-        transforms.Resize((int(config["image_size"]), int(config["image_size"]))),
-        transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-    ])
+    transform = transforms.Compose(
+        [
+            transforms.Resize((int(config["image_size"]), int(config["image_size"]))),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        ]
+    )
     dataset = datasets.ImageFolder(data_dir / "test", transform=transform)
     checkpoint = torch.load(model_path, map_location=device)
     classes = checkpoint["classes"]
@@ -47,13 +56,28 @@ def main() -> None:
             predictions.extend(model(images.to(device)).argmax(1).cpu().tolist())
             targets.extend(labels.tolist())
     report = {
-        "model": str(model_path), "data": str(data_dir / "test"), "classes": classes,
-        "metrics": {"accuracy": accuracy_score(targets, predictions), "macro_f1": f1_score(targets, predictions, average="macro", zero_division=0)},
-        "classification_report": classification_report(targets, predictions, target_names=classes, output_dict=True, zero_division=0),
+        "model": str(model_path),
+        "data": str(data_dir / "test"),
+        "classes": classes,
+        "metrics": {
+            "accuracy": accuracy_score(targets, predictions),
+            "macro_f1": f1_score(
+                targets, predictions, average="macro", zero_division=0
+            ),
+        },
+        "classification_report": classification_report(
+            targets,
+            predictions,
+            target_names=classes,
+            output_dict=True,
+            zero_division=0,
+        ),
         "confusion_matrix": confusion_matrix(targets, predictions).tolist(),
     }
     report_dir.mkdir(parents=True, exist_ok=True)
-    (report_dir / "metrics.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    (report_dir / "metrics.json").write_text(
+        json.dumps(report, indent=2) + "\n", encoding="utf-8"
+    )
     lines = [
         "# CNN Model Değerlendirme Raporu",
         "",
@@ -73,13 +97,17 @@ def main() -> None:
             f"| {class_name} | {values['precision']:.4f} | {values['recall']:.4f} | "
             f"{values['f1-score']:.4f} | {int(values['support'])} |"
         )
-    lines.extend([
-        "",
-        "## Not",
-        "",
-        "`trash` sınıfı daha az örneğe sahip olduğu için recall değeri diğer sınıflardan düşüktür.",
-    ])
-    (report_dir / "evaluation_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    lines.extend(
+        [
+            "",
+            "## Not",
+            "",
+            "`trash` sınıfı daha az örneğe sahip olduğu için recall değeri diğer sınıflardan düşüktür.",
+        ]
+    )
+    (report_dir / "evaluation_report.md").write_text(
+        "\n".join(lines) + "\n", encoding="utf-8"
+    )
     print(json.dumps(report["metrics"], indent=2))
 
 

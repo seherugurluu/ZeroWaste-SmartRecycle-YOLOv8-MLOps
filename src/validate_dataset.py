@@ -20,10 +20,16 @@ def validate_dataset(dataset_dir: Path = DATASET_DIR) -> list[str]:
         if not classes:
             errors.append(f"{split}: sınıf klasörü bulunamadı")
         for class_name in classes:
-            files = [path for path in (split_dir / class_name).iterdir() if path.is_file()]
-            invalid = [path for path in files if path.suffix.lower() not in IMAGE_EXTENSIONS]
+            files = [
+                path for path in (split_dir / class_name).iterdir() if path.is_file()
+            ]
+            invalid = [
+                path for path in files if path.suffix.lower() not in IMAGE_EXTENSIONS
+            ]
             if invalid:
-                errors.append(f"{split}/{class_name}: desteklenmeyen dosya: {invalid[0].name}")
+                errors.append(
+                    f"{split}/{class_name}: desteklenmeyen dosya: {invalid[0].name}"
+                )
             if not files:
                 errors.append(f"{split}/{class_name}: görüntü bulunamadı")
     if split_classes:
