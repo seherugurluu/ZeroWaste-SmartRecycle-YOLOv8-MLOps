@@ -8,6 +8,7 @@ __pycache__/
 
 # The dataset is mounted read-only by docker compose instead of copied into the image.
 data/
+data_classification/
 GARBAGE CLASSIFICATION/
 models/
 

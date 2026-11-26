@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, cnn-classification]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, cnn-classification]
 
 jobs:
   quality-and-tests:
@@ -42,5 +42,8 @@ jobs:
       - name: Validate Docker Compose configuration
         run: docker compose config -q
 
-      - name: Build Docker image
-        run: docker build --tag zerowaste-dataset-validator:ci .
+      - name: Build CNN validation image
+        run: docker build --tag zerowaste-cnn-dataset-validator:ci .
+
+      - name: Validate CNN Compose services
+        run: docker compose config -q

@@ -1,18 +1,18 @@
 services:
-  dataset-validator:
+  cnn-dataset-validator:
     build:
       context: .
       dockerfile: Dockerfile
-    image: zerowaste-dataset-validator:local
+    image: zerowaste-cnn-dataset-validator:local
     volumes:
       - ./data_classification:/app/data_classification:ro
     command: ["python", "src/validate_dataset.py"]
 
-  dataset-tests:
+  cnn-dataset-tests:
     build:
       context: .
       dockerfile: Dockerfile
-    image: zerowaste-dataset-validator:local
+    image: zerowaste-cnn-dataset-validator:local
     volumes:
       - ./data_classification:/app/data_classification:ro
     command: ["python", "-m", "pytest", "tests/test_dataset_validation.py", "-q"]

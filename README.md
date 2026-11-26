@@ -80,6 +80,8 @@ Değerlendirme sonucu `reports/cnn/metrics.json` ve `reports/cnn/evaluation_repo
 - CI/CD: `.github/workflows/`
 - Docker doğrulama: `docker-compose.yml`
 
+CNN ham veri seti DVC ile `data_classification/raw.dvc` üzerinden izlenir. `data_classification/split` klasörü, `src/prepare_dataset.py` ile yeniden üretildiği için Git'e alınmaz. Docker dataset'i image içine kopyalamaz; `docker-compose.yml` üzerinden salt-okunur volume olarak bağlar.
+
 ## Eski YOLOv8 çıktıları
 
 CNN dönüşümü aktif eğitim ve değerlendirme akışından YOLOv8 bağımlılığını kaldırır. Eski YOLO veri seti ve deney çıktıları geri dönüş amacıyla workspace'te tutulabilir; yeni CNN kodu bunlara başvurmaz.

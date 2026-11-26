@@ -222,7 +222,8 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 /data
-/data_classification
+/data_classification/*
+!/data_classification/raw.dvc
 new_dataset.zip
 models/cnn/
 GARBAGE CLASSIFICATION/
