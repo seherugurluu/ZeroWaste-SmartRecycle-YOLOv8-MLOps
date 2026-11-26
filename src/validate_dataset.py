@@ -1,98 +1,49 @@
-from concurrent.futures import ThreadPoolExecutor
+"""Klasör tabanlı CNN sınıflandırma veri setini doğrular."""
+
 from pathlib import Path
 
-CLASS_COUNT = 6
-SPLITS = ["train", "valid", "test"]
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DATASET_DIR = PROJECT_ROOT / "data"
+DATASET_DIR = PROJECT_ROOT / "data_classification" / "split"
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
-def validate_label_file(label_file: Path) -> list[str]:
-    """Bir YOLO etiket dosyasındaki satırları kontrol eder."""
+def validate_dataset(dataset_dir: Path = DATASET_DIR) -> list[str]:
     errors = []
-
-    try:
-        lines = label_file.read_text(encoding="utf-8").splitlines()
-    except OSError as error:
-        return [f"{label_file}: dosya okunamadi: {error}"]
-
-    for line_number, line in enumerate(lines, start=1):
-        line = line.strip()
-
-        if not line:
+    split_classes = {}
+    for split in ("train", "valid", "test"):
+        split_dir = dataset_dir / split
+        if not split_dir.is_dir():
+            errors.append(f"{split}: klasör bulunamadı: {split_dir}")
             continue
-
-        parts = line.split()
-
-        if len(parts) != 5:
-            errors.append(f"{label_file} - satir {line_number}: 5 deger bekleniyor")
-            continue
-
-        try:
-            class_id = int(parts[0])
-            values = [float(value) for value in parts[1:]]
-        except ValueError:
-            errors.append(f"{label_file} - satir {line_number}: sayisal olmayan deger")
-            continue
-
-        if not 0 <= class_id < CLASS_COUNT:
-            errors.append(
-                f"{label_file} - satir {line_number}: " f"gecersiz class id: {class_id}"
-            )
-
-        if not all(0 <= value <= 1 for value in values):
-            errors.append(
-                f"{label_file} - satir {line_number}: "
-                "koordinatlar 0 ile 1 arasinda olmali"
-            )
-
+        classes = sorted(path.name for path in split_dir.iterdir() if path.is_dir())
+        split_classes[split] = classes
+        if not classes:
+            errors.append(f"{split}: sınıf klasörü bulunamadı")
+        for class_name in classes:
+            files = [path for path in (split_dir / class_name).iterdir() if path.is_file()]
+            invalid = [path for path in files if path.suffix.lower() not in IMAGE_EXTENSIONS]
+            if invalid:
+                errors.append(f"{split}/{class_name}: desteklenmeyen dosya: {invalid[0].name}")
+            if not files:
+                errors.append(f"{split}/{class_name}: görüntü bulunamadı")
+    if split_classes:
+        expected = split_classes.get("train", [])
+        for split, classes in split_classes.items():
+            if classes != expected:
+                errors.append(f"{split}: sınıflar train ile aynı değil")
     return errors
 
 
 def main() -> None:
-    total_labels = 0
-    errors = []
-
-    for split in SPLITS:
-        split_dir = DATASET_DIR / split
-        images_dir = split_dir / "images"
-        labels_dir = split_dir / "labels"
-
-        if not images_dir.exists() or not labels_dir.exists():
-            errors.append(f"{split}: images veya labels klasoru bulunamadi")
-            continue
-
-        image_stems = {file.stem for file in images_dir.iterdir() if file.is_file()}
-        label_files = sorted(labels_dir.glob("*.txt"))
-        label_stems = {file.stem for file in label_files}
-        total_labels += len(label_files)
-
-        for missing_label in sorted(image_stems - label_stems):
-            errors.append(f"{split}: etiketi bulunamayan gorsel: {missing_label}")
-
-        for missing_image in sorted(label_stems - image_stems):
-            errors.append(f"{split}: gorseli bulunamayan etiket: {missing_image}")
-
-        worker_count = min(16, max(1, len(label_files)))
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            for file_errors in executor.map(validate_label_file, label_files):
-                errors.extend(file_errors)
-
-        print(
-            f"{split}: {len(image_stems)} gorsel, "
-            f"{len(label_files)} label dosyasi kontrol edildi.",
-            flush=True,
-        )
-
-    print()
-    print(f"Toplam label dosyasi: {total_labels}")
-
+    errors = validate_dataset()
     if errors:
         print(f"HATA SAYISI: {len(errors)}")
-        for error in errors[:20]:
-            print(error)
-    else:
-        print("Dataset kontrolu basarili!")
+        print("\n".join(errors[:20]))
+        raise SystemExit(1)
+    for split in ("train", "valid", "test"):
+        count = sum(1 for path in (DATASET_DIR / split).rglob("*") if path.is_file())
+        print(f"{split}: {count} görüntü kontrol edildi.")
+    print("Classification dataset kontrolu basarili!")
 
 
 if __name__ == "__main__":

@@ -1,106 +1,60 @@
-"""Eğitilmiş YOLOv8 modelini değerlendirir ve rapor üretir."""
+"""Eğitilmiş CNN modelini test eder ve sınıflandırma raporu üretir."""
 
 from argparse import ArgumentParser
 import json
 from pathlib import Path
 
-from ultralytics import YOLO
-
+import torch
+import yaml
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
+from torch.utils.data import DataLoader
+from torchvision import datasets, models, transforms
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DATA = PROJECT_ROOT / "data" / "data.yaml"
-DEFAULT_MODEL = PROJECT_ROOT / "models" / "best.pt"
-DEFAULT_REPORT_DIR = PROJECT_ROOT / "reports"
-
-
-def parse_args():
-    parser = ArgumentParser(description="YOLOv8 modelini test verisiyle değerlendirir.")
-    parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
-    parser.add_argument("--data", type=Path, default=DEFAULT_DATA)
-    parser.add_argument("--split", default="test", choices=("val", "test"))
-    parser.add_argument("--report-dir", type=Path, default=DEFAULT_REPORT_DIR)
-    return parser.parse_args()
-
-
-def _metric(metrics, name: str):
-    value = getattr(metrics.box, name, None)
-    return None if value is None else float(value)
-
-
-def build_report(metrics, model_path: Path, data_path: Path, split: str) -> dict:
-    """Ultralytics sonuçlarını JSON'a yazılabilir basit bir sözlüğe dönüştürür."""
-    names = getattr(metrics, "names", {})
-    per_class = {}
-    class_maps = getattr(metrics.box, "maps", [])
-    for class_id, value in enumerate(class_maps):
-        class_name = (
-            names.get(class_id, str(class_id))
-            if isinstance(names, dict)
-            else str(class_id)
-        )
-        per_class[class_name] = {"map50_95": float(value)}
-
-    return {
-        "model": str(model_path),
-        "data": str(data_path),
-        "split": split,
-        "metrics": {
-            "precision": _metric(metrics, "mp"),
-            "recall": _metric(metrics, "mr"),
-            "map50": _metric(metrics, "map50"),
-            "map50_95": _metric(metrics, "map"),
-        },
-        "per_class": per_class,
-    }
-
-
-def write_markdown(report: dict, output_path: Path) -> None:
-    values = report["metrics"]
-    lines = [
-        "# Model Değerlendirme Raporu",
-        "",
-        f"- Model: `{report['model']}`",
-        f"- Veri: `{report['data']}`",
-        f"- Bölüm: `{report['split']}`",
-        "",
-        "## Başarı Metrikleri",
-        "",
-        "| Metrik | Değer |",
-        "|---|---:|",
-    ]
-    for name, value in values.items():
-        formatted = "N/A" if value is None else f"{value:.4f}"
-        lines.append(f"| {name} | {formatted} |")
-
-    if report["per_class"]:
-        lines.extend(
-            ["", "## Sınıf Bazlı mAP50-95", "", "| Sınıf | Değer |", "|---|---:|"]
-        )
-        for class_name, class_metrics in report["per_class"].items():
-            lines.append(f"| {class_name} | {class_metrics['map50_95']:.4f} |")
-
-    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "train.yaml"
 
 
 def main() -> None:
-    args = parse_args()
-    model = YOLO(str(args.model))
-    if model.task != "detect":
-        raise SystemExit(
-            f"Uyumsuz model görevi: {model.task}. "
-            "Bu değerlendirme, data.yaml içindeki images/labels yapısı için "
-            "bir detection modeli bekliyor."
-        )
-
-    metrics = model.val(data=str(args.data), split=args.split, plots=True)
-    report = build_report(metrics, args.model, args.data, args.split)
-
-    args.report_dir.mkdir(parents=True, exist_ok=True)
-    (args.report_dir / "metrics.json").write_text(
-        json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
-    write_markdown(report, args.report_dir / "evaluation_report.md")
-    print(json.dumps(report["metrics"], indent=2, ensure_ascii=False))
+    parser = ArgumentParser(description="CNN modelini test veri setiyle değerlendirir.")
+    parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    parser.add_argument("--model", type=Path)
+    parser.add_argument("--report-dir", type=Path)
+    args = parser.parse_args()
+    with args.config.open(encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+    data_dir = Path(config["data_dir"])
+    if not data_dir.is_absolute():
+        data_dir = PROJECT_ROOT / data_dir
+    model_path = args.model or PROJECT_ROOT / config["output_dir"] / "best_model.pth"
+    report_dir = args.report_dir or PROJECT_ROOT / "reports"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    transform = transforms.Compose([
+        transforms.Resize((int(config["image_size"]), int(config["image_size"]))),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+    dataset = datasets.ImageFolder(data_dir / "test", transform=transform)
+    checkpoint = torch.load(model_path, map_location=device)
+    classes = checkpoint["classes"]
+    model = models.resnet50(weights=None)
+    model.fc = torch.nn.Linear(model.fc.in_features, len(classes))
+    model.load_state_dict(checkpoint["model"])
+    model.to(device).eval()
+    loader = DataLoader(dataset, batch_size=int(config["batch_size"]), shuffle=False)
+    predictions, targets = [], []
+    with torch.no_grad():
+        for images, labels in loader:
+            predictions.extend(model(images.to(device)).argmax(1).cpu().tolist())
+            targets.extend(labels.tolist())
+    report = {
+        "model": str(model_path), "data": str(data_dir / "test"), "classes": classes,
+        "metrics": {"accuracy": accuracy_score(targets, predictions), "macro_f1": f1_score(targets, predictions, average="macro", zero_division=0)},
+        "classification_report": classification_report(targets, predictions, target_names=classes, output_dict=True, zero_division=0),
+        "confusion_matrix": confusion_matrix(targets, predictions).tolist(),
+    }
+    report_dir.mkdir(parents=True, exist_ok=True)
+    (report_dir / "metrics.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(report["metrics"], indent=2))
 
 
 if __name__ == "__main__":

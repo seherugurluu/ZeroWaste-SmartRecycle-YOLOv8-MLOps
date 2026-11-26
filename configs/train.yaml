@@ -1,13 +1,11 @@
-# YOLOv8 eğitim ayarları
-model: yolov8n.pt
-data: data/data.yaml
-epochs: 50
-imgsz: 640
-batch: 16
-patience: 10
-workers: 4
-device: 0
-project: runs/train
-name: waste-yolov8
-exist_ok: false
-plots: true
+# ResNet50 transfer-learning ayarları
+data_dir: data_classification/split
+output_dir: models/cnn
+image_size: 224
+batch_size: 32
+epochs: 20
+learning_rate: 0.0001
+workers: 0
+device: cuda
+pretrained: true
+seed: 42

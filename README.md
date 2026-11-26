@@ -1,135 +1,92 @@
-# ZeroWaste-SmartRecycle-YOLOv8-MLOps
-# Smart Zero Waste and Recycling Management System Based on YOLOv8 ♻️
+# ZeroWaste SmartRecycle CNN MLOps
 
-## 1. Project Overview
+Altı sınıflı atık görüntüsü sınıflandırma sistemi. Proje, hazır ImageNet ağırlıklarıyla başlatılan ResNet50 CNN modelini atık veri setine göre fine-tune eder ve MLOps uygulamalarını korur.
 
-This project aims to develop a smart waste classification and recycling management system using YOLOv8 and MLOps principles.
+## Sınıflar
 
-The system is designed to identify different types of waste from images and provide appropriate recycling guidance based on the detected category. It also aims to support waste management awareness through a Zero Waste Score.
-
-## 2. Project Objectives
-
-- Detect and classify waste using YOLOv8.
-- Support six waste categories.
-- Provide recycling guidance based on the detected waste type.
-- Develop a reproducible machine learning workflow.
-- Apply MLOps practices for data versioning, model development, testing, deployment, and monitoring.
-
-## 3. Waste Categories
-
-The dataset includes the following categories:
-
-- Biodegradable
 - Cardboard
 - Glass
 - Metal
 - Paper
 - Plastic
+- Trash
 
-## 4. Technologies
+## Veri seti
 
-- **Python:** Main programming language
-- **YOLOv8 (Ultralytics):** Object detection
-- **OpenCV:** Image processing
-- **Poetry:** Dependency management
-- **DVC:** Dataset versioning
-- **Git and GitHub:** Version control and collaboration
-- **Docker:** Containerization
+Kullanılan veri seti, 2.527 görselden oluşan klasör tabanlı `TrashType_Image_Dataset` veri setidir. Ham veri `data_classification/raw/TrashType_Image_Dataset` altında, eğitim için oluşturulan splitler ise şu yapıda tutulur:
 
-Additional MLOps tools will be integrated as the project develops.
+```text
+data_classification/split/
+├── train/<class_name>/
+├── valid/<class_name>/
+└── test/<class_name>/
+```
 
-## Training and Evaluation
+Ham veri setini çıkardıktan sonra splitleri oluşturun:
 
-Training parameters are stored in [configs/train.yaml](configs/train.yaml).
-Start a reproducible YOLOv8 detection training run with:
+```powershell
+poetry run python src/prepare_dataset.py `
+  --input data_classification/raw/TrashType_Image_Dataset `
+  --output data_classification/split
+```
+
+Veri setini doğrulama:
+
+```powershell
+poetry run python src/validate_dataset.py
+poetry run pytest -q
+```
+
+## Kurulum
+
+```powershell
+poetry install
+```
+
+CUDA kullanılabilir durumdaysa config içindeki `device: cuda` ayarı GPU kullanır; GPU yoksa eğitim otomatik olarak CPU'ya düşer.
+
+## Eğitim
+
+`configs/train.yaml` içindeki ayarlarla ResNet50 transfer learning eğitimi başlatılır:
 
 ```powershell
 poetry run python src/train.py --config configs/train.yaml
 ```
 
-After training, evaluate the best checkpoint and create the metric files:
-
-```powershell
-poetry run python src/evaluate.py --model runs/train/waste-yolov8/weights/best.pt
-```
-
-The evaluation command writes `reports/metrics.json` and
-`reports/evaluation_report.md`. Metrics must be generated from a compatible
-detection model; the old `models/best.pt` file is a classification model and
-cannot be evaluated against the current `images/labels` detection dataset.
-
-## Docker
-
-Docker Desktop must be running before using the commands below. The dataset is
-mounted read-only into the container and is not copied into the image.
-
-Validate the dataset:
-
-```powershell
-docker compose run --rm dataset-validator
-```
-
-Run the automated dataset tests:
-
-```powershell
-docker compose run --rm dataset-tests
-```
-
-The current Docker setup validates the dataset. A model API container will be
-added after the FastAPI serving layer is implemented.
-
-## CI/CD
-
-GitHub Actions workflows are stored in `.github/workflows/`.
-
-- `ci.yml` runs on pushes and pull requests to `main`/`master`. It runs
-  pre-commit, pytest, Docker Compose configuration validation, and a Docker
-  image build.
-- `cd.yml` runs for version tags such as `v1.0.0` and publishes the validator
-  image to GitHub Container Registry (GHCR).
-
-To publish a release image, create and push a version tag:
-
-```powershell
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-The GitHub Actions `GITHUB_TOKEN` is used for GHCR authentication; no personal
-access token is stored in the repository.
-
-## 5. Project Structure
+En iyi model şu konuma kaydedilir:
 
 ```text
-ZeroWaste-SmartRecycle-YOLOv8-MLOps/
-├── configs/
-├── data/
-├── models/
-├── notebooks/
-├── src/
-│   └── validate_dataset.py
-├── tests/
-├── .dvc/
-├── .dvcignore
-├── .gitignore
-├── data.dvc
-├── pyproject.toml
-├── poetry.lock
-└── README.md
+models/cnn/best_model.pth
 ```
 
-## 6. Dataset
+Veri setindeki `trash` sınıfı diğer sınıflardan daha az örneğe sahip olduğu için eğitimde weighted sampler ve görüntü artırma kullanılır.
 
-The project uses the [Garbage Detection – 6 Waste Categories dataset](https://www.kaggle.com/datasets/viswaprakash1990/garbage-detection).
+## Değerlendirme
 
-The dataset is organized into training, validation, and test splits. Dataset versioning is managed using DVC.
+```powershell
+poetry run python src/evaluate.py --config configs/train.yaml
+```
 
-The dataset files are not stored directly in the GitHub repository.
+Değerlendirme sonucu `reports/metrics.json` içine yazılır. Raporda accuracy, macro F1, sınıf bazlı precision/recall/F1 ve confusion matrix bulunur. Nesne tespiti için kullanılan mAP metriği bu CNN sınıflandırma akışında kullanılmaz.
 
-## 7. Team
+## MLOps
+
+- Veri doğrulama: `src/validate_dataset.py`
+- Deterministik veri bölme: `src/prepare_dataset.py`
+- Model eğitimi: `src/train.py`
+- Model değerlendirme: `src/evaluate.py`
+- Otomatik testler: `tests/`
+- Veri sürümleme: DVC yapılandırması
+- CI/CD: `.github/workflows/`
+- Docker doğrulama: `docker-compose.yml`
+
+## Eski YOLOv8 çıktıları
+
+CNN dönüşümü aktif eğitim ve değerlendirme akışından YOLOv8 bağımlılığını kaldırır. Eski YOLO veri seti ve deney çıktıları geri dönüş amacıyla workspace'te tutulabilir; yeni CNN kodu bunlara başvurmaz.
+
+## Takım
 
 - Seher Uğurlu
 - Damla Su Özbek
 
-**Course:** MLOps
-
+**Ders:** MLOps

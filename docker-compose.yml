@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     image: zerowaste-dataset-validator:local
     volumes:
-      - ./data:/app/data:ro
+      - ./data_classification:/app/data_classification:ro
     command: ["python", "src/validate_dataset.py"]
 
   dataset-tests:
@@ -14,5 +14,5 @@ services:
       dockerfile: Dockerfile
     image: zerowaste-dataset-validator:local
     volumes:
-      - ./data:/app/data:ro
+      - ./data_classification:/app/data_classification:ro
     command: ["python", "-m", "pytest", "tests/test_dataset_validation.py", "-q"]

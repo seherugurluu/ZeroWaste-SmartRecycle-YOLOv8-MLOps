@@ -1,86 +1,90 @@
-# Google Colab ile GPU Eğitim Rehberi
+# Google Colab ile ResNet50 CNN Eğitimi
 
-Bu rehber, veri setini GitHub'a göndermeden Colab GPU üzerinde eğitim yapmak
-içindir. `data/` klasörü DVC ile yönetildiği için Colab'a ayrıca yüklenmelidir.
+Yerel bilgisayarda GPU yoksa CNN eğitimini Google Colab GPU üzerinde çalıştırın.
 
-## 1. Veri setini zip yapma (Windows PowerShell)
-
-Proje klasöründe çalıştırın:
-
-```powershell
-Compress-Archive -Path data -DestinationPath data.zip -CompressionLevel Fastest
-```
-
-Oluşan `data.zip` dosyasını Colab'a yükleyeceğiz. Bu dosyayı GitHub'a
-göndermeyin.
-
-## 2. Colab GPU'yu açma
+## 1. Colab GPU'yu açma
 
 Colab'da `Runtime > Change runtime type > T4 GPU` seçin.
 
-## 3. Projeyi ve bağımlılıkları hazırlama
+## 2. Projeyi ve veri setini yükleme
 
-Colab hücresinde:
+Projeyi GitHub'dan klonlayın ve çalışma klasörüne geçin:
 
 ```python
 !git clone https://github.com/seherugurluu/ZeroWaste-SmartRecycle-YOLOv8-MLOps.git
 %cd ZeroWaste-SmartRecycle-YOLOv8-MLOps
-!pip install -q ultralytics pyyaml
+!pip install -q torch torchvision pillow pyyaml scikit-learn
 !nvidia-smi
 ```
 
-## 4. Veri setini yükleme
+Bilgisayarınızdaki `new_dataset.zip` dosyasını Colab'a yükleyin:
 
 ```python
 from google.colab import files
-
-uploaded = files.upload()  # Bilgisayardaki data.zip dosyasını seçin
+uploaded = files.upload()
 ```
 
+Zip dosyasını ham veri klasörüne çıkarın:
+
 ```python
-!unzip -q data.zip -d .
+!mkdir -p data_classification/raw
+!unzip -q new_dataset.zip -d data_classification/raw
+```
+
+## 3. Train/validation/test split oluşturma
+
+```python
+!python src/prepare_dataset.py \
+  --input data_classification/raw/TrashType_Image_Dataset \
+  --output data_classification/split
 !python src/validate_dataset.py
 ```
 
-Doğrulama sonucunda 10.464 görsel ve etiket kontrol edilmelidir.
-
-## 5. GPU eğitimini başlatma
-
-İlk deneme için 10 epoch:
-
-```python
-!python src/train.py --config configs/train.yaml --device 0 --epochs 10 --batch 8 --imgsz 640
-```
-
-Sonuçlar beklendiği gibiyse final eğitim:
-
-```python
-!python src/train.py --config configs/train.yaml --device 0 --epochs 50 --batch 8 --imgsz 640
-```
-
-Eğitim sonunda en iyi model genellikle şu konumda olur:
+Beklenen toplamlar yaklaşık olarak şöyledir:
 
 ```text
-runs/train/waste-yolov8/weights/best.pt
+train: 1766
+valid: 377
+test: 384
 ```
 
-## 6. Test ve rapor üretme
+## 4. CNN eğitimini başlatma
+
+İlk deneme için `configs/train.yaml` içinde `epochs` değerini 3 veya 5 yapabilirsiniz. GPU üzerinde eğitim:
 
 ```python
-!python src/evaluate.py \
-  --model runs/train/waste-yolov8/weights/best.pt \
-  --data data/data.yaml \
-  --split test
+!python src/train.py --config configs/train.yaml
 ```
 
-Rapor dosyaları `reports/metrics.json` ve
-`reports/evaluation_report.md` olarak oluşur. Modeli ve raporları indirmek
-için:
+Model şu konuma kaydedilir:
+
+```text
+models/cnn/best_model.pth
+```
+
+## 5. Test ve rapor üretme
 
 ```python
-from google.colab import files
+!python src/evaluate.py --config configs/train.yaml
+```
 
-files.download("runs/train/waste-yolov8/weights/best.pt")
+Raporu görüntülemek için:
+
+```python
+import json
+with open("reports/metrics.json", encoding="utf-8") as file:
+    print(json.dumps(json.load(file), indent=2))
+```
+
+Modeli ve raporu bilgisayara indirmek için:
+
+```python
+files.download("models/cnn/best_model.pth")
 files.download("reports/metrics.json")
-files.download("reports/evaluation_report.md")
 ```
+
+## Notlar
+
+- Bu rehber ResNet50 CNN içindir; YOLOv8 komutları kullanılmamalıdır.
+- `trash` sınıfı az örnekli olduğu için eğitim kodu weighted sampler ve augmentation kullanır.
+- İlk eğitimde `epochs: 3` veya `epochs: 5` ile kontrol yapıp, sonuç uygunsa `epochs: 20` ile final eğitime geçin.
