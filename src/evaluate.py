@@ -26,7 +26,7 @@ def main() -> None:
     if not data_dir.is_absolute():
         data_dir = PROJECT_ROOT / data_dir
     model_path = args.model or PROJECT_ROOT / config["output_dir"] / "best_model.pth"
-    report_dir = args.report_dir or PROJECT_ROOT / "reports"
+    report_dir = args.report_dir or PROJECT_ROOT / config.get("report_dir", "reports/cnn")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     transform = transforms.Compose([
         transforms.Resize((int(config["image_size"]), int(config["image_size"]))),
@@ -54,6 +54,32 @@ def main() -> None:
     }
     report_dir.mkdir(parents=True, exist_ok=True)
     (report_dir / "metrics.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    lines = [
+        "# CNN Model Değerlendirme Raporu",
+        "",
+        "## Genel Metrikler",
+        "",
+        f"- Accuracy: {report['metrics']['accuracy']:.4f}",
+        f"- Macro F1: {report['metrics']['macro_f1']:.4f}",
+        "",
+        "## Sınıf Bazlı Sonuçlar",
+        "",
+        "| Sınıf | Precision | Recall | F1 | Görüntü |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for class_name in classes:
+        values = report["classification_report"][class_name]
+        lines.append(
+            f"| {class_name} | {values['precision']:.4f} | {values['recall']:.4f} | "
+            f"{values['f1-score']:.4f} | {int(values['support'])} |"
+        )
+    lines.extend([
+        "",
+        "## Not",
+        "",
+        "`trash` sınıfı daha az örneğe sahip olduğu için recall değeri diğer sınıflardan düşüktür.",
+    ])
+    (report_dir / "evaluation_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(json.dumps(report["metrics"], indent=2))
 
 

@@ -67,7 +67,7 @@ Veri setindeki `trash` sınıfı diğer sınıflardan daha az örneğe sahip old
 poetry run python src/evaluate.py --config configs/train.yaml
 ```
 
-Değerlendirme sonucu `reports/metrics.json` içine yazılır. Raporda accuracy, macro F1, sınıf bazlı precision/recall/F1 ve confusion matrix bulunur. Nesne tespiti için kullanılan mAP metriği bu CNN sınıflandırma akışında kullanılmaz.
+Değerlendirme sonucu `reports/cnn/metrics.json` ve `reports/cnn/evaluation_report.md` içine yazılır. Raporda accuracy, macro F1, sınıf bazlı precision/recall/F1 ve confusion matrix bulunur. Nesne tespiti için kullanılan mAP metriği bu CNN sınıflandırma akışında kullanılmaz.
 
 ## MLOps
 

@@ -1,6 +1,7 @@
 # ResNet50 transfer-learning ayarları
 data_dir: data_classification/split
 output_dir: models/cnn
+report_dir: reports/cnn
 image_size: 224
 batch_size: 32
 epochs: 20
