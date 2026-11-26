@@ -11,7 +11,7 @@ Colab'da `Runtime > Change runtime type > T4 GPU` seçin.
 Projeyi GitHub'dan klonlayın ve çalışma klasörüne geçin:
 
 ```python
-!git clone https://github.com/seherugurluu/ZeroWaste-SmartRecycle-YOLOv8-MLOps.git
+!git clone -b cnn-classification https://github.com/seherugurluu/ZeroWaste-SmartRecycle-YOLOv8-MLOps.git
 %cd ZeroWaste-SmartRecycle-YOLOv8-MLOps
 !pip install -q torch torchvision pillow pyyaml scikit-learn
 !nvidia-smi
